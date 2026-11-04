@@ -1,68 +1,100 @@
 # Kingdom of Embers
 
-A single-player, turn-based fantasy RPG written in **Java**. A mysterious corruption is burning the kingdom. Level up, gather gear, and defeat the **Ember Lord** to save it.
+A single-player fantasy RPG written in Java. Travel through a corrupted kingdom, fight monsters, level up, learn skills, and defeat the boss, the **Ember Lord**.
 
-This is the console version of the project. A graphical LibGDX version is planned as future work.
+Available in two versions that share the same game logic:
 
-## Features
-
-- Turn-based combat: attack, power strike (with cooldown), potions, inspect enemy, flee
-- Critical hits (15% chance, double damage)
-- Enemies: Goblin, Wolf, Skeleton Warrior, Dark Knight, and the Ember Lord boss
-- Boss special attack ("Ember Fury") every third turn
-- XP and level progression (more HP, attack and defence per level)
-- Gold, potions and a village shop
-- Elder NPC with a quest (slay 5 monsters)
-- 5 areas gated by player level
-- Save and load (`embers.sav`)
-
-## How to run
-
-Requires **Java 11 or newer**.
-
-```
-java KingdomOfEmbers.java
-```
-
-Or compile first:
-
-```
-javac KingdomOfEmbers.java
-java KingdomOfEmbers
-```
-
-## How to play
-
-1. Start in **Ashfall Village**: rest, buy potions and upgrades, talk to the Elder.
-2. **Travel** to other areas and **Explore** to fight enemies.
-3. Gain levels to unlock tougher areas.
-4. Reach level 7, enter the **Ember Lord's Lair**, and win the final battle.
-5. Use **Save** any time; the game offers to continue from your save on startup.
-
-## Object-oriented design
-
-| Principle | Where it is used |
-|---|---|
-| Encapsulation | `Fighter` keeps stats protected and changes them via `takeDamage()` and `heal()` |
-| Inheritance | `Hero` and `Enemy` extend `Fighter`; `Wolf` and `Boss` extend `Enemy` |
-| Polymorphism | `attackRoll()` is overridden by `Wolf` (bonus bite) and `Boss` (Ember Fury) |
-| Abstraction | The `fight()` method works with any `Enemy` without knowing its type |
+- **Console version** (`KingdomOfEmbers.java`): text-based RPG
+- **Graphical version** (`KingdomOfEmbersGUI.java`): Java Swing window with tile maps, sprites and a battle screen
 
 ## Screenshots
 
-Add screenshots to a `screenshots/` folder and link them here:
+<!-- Add screenshots here after your playthrough -->
+| Map | Battle | Skills |
+|-----|--------|--------|
+| ![Map](screenshots/map.png) | ![Battle](screenshots/battle.png) | ![Skills](screenshots/skills.png) |
 
+## Features
+
+- **Five areas:** Ashfall Village, Whispering Forest, Abandoned Ruins, Underground Dungeon, Ember Lord's Lair. Each has its own tile map and colours, and higher areas require a higher level.
+- **Turn-based combat:** attack, Power Strike (with cooldown), potion, flee, or cast a skill. Attacks have a 15% critical hit chance.
+- **Visible monsters:** monsters roam the map and chase the hero when it gets close. Touching one starts a battle.
+- **Enemies:** Goblin, Wolf, Skeleton Warrior, Dark Knight, and the Ember Lord, who uses a powerful special attack every third turn.
+- **Progression:** defeating enemies gives XP and gold. Levelling up raises health, attack, defence and mana.
+- **Mana and skills:**
+
+  | Skill | Unlocks at | Effect |
+  |-------|-----------|--------|
+  | Fireball | Level 2 | Damage that ignores enemy defence |
+  | Heal | Level 3 | Restores 40% of maximum health |
+  | Guard | Level 4 | Halves the next hit taken |
+  | Ember Storm | Level 6 | Heavy damage attack |
+
+- **Village:** rest at the inn, buy potions and weapon upgrades, and talk to the Elder NPC for a quest (slay 5 monsters).
+- **Save and load:** progress is stored in a save file.
+
+## How to run
+
+Requires Java (JDK 11 or newer). Put both `.java` files in the same folder.
+
+**Graphical version**
+
+```bash
+javac KingdomOfEmbers.java KingdomOfEmbersGUI.java
+java KingdomOfEmbersGUI
 ```
-![Combat](screenshots/combat.png)
-![Victory](screenshots/victory.png)
+
+**Console version**
+
+```bash
+java KingdomOfEmbers.java
 ```
 
-## Future scope
+## Controls (graphical version)
 
-- LibGDX graphical version with maps and sprites
-- More quests, NPC dialogue and equipment
-- Additional character classes and skill trees
+| Key | Action |
+|-----|--------|
+| Arrow keys / WASD | Move |
+| 1-5 | Travel between areas |
+| P | Use a potion |
+| H | Cast Heal |
+| K | Save |
+| L | Load |
 
-## Tech
+**In battle**
 
-Java, Git, GitHub. Planned: LibGDX, Gradle.
+| Key | Action |
+|-----|--------|
+| 1 | Attack |
+| 2 | Power Strike |
+| 3 | Potion |
+| 4 | Flee |
+| 5-8 | Skills |
+
+## Design
+
+The code is object-oriented:
+
+- `Fighter` is the base class for all combatants.
+- `Hero` and `Enemy` extend `Fighter`.
+- `Wolf` and `Boss` extend `Enemy` and override how they attack (polymorphism).
+- The GUI reuses the console game's classes, keeping game logic separate from display.
+
+## Known limitations
+
+- The project was built in two days, so scope was deliberately reduced from the original LibGDX proposal to a console game plus a Swing GUI.
+- Graphics are simple tile and sprite drawings, with no sound.
+- There is one save slot, and saves from earlier versions may not be compatible with the skill system.
+- The graphical version is still being playtested for balance and bugs.
+
+## Future work
+
+- Port the game to **LibGDX** for a fuller 2D experience (the original proposal)
+- Treasure chests and an armour system
+- Additional quests and NPCs
+- Sound effects and music
+- Floating damage numbers and battle animations
+
+## Tools
+
+Java, Java Swing, Visual Studio Code, Git and GitHub.
