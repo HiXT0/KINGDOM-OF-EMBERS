@@ -27,6 +27,15 @@ public class KingdomOfEmbersGUI extends JPanel implements KeyListener {
     int[][] map;
     int px = 1, py = 1;
     boolean over, victory;
+
+    // ---- Skills (unlock by level, cost MP) ----
+    static final String[] SKILL_NAME = { "Fireball", "Heal", "Guard", "Ember Storm" };
+    static final int[] SKILL_LV = { 2, 3, 4, 6 };
+    static final int[] SKILL_MP = { 8, 10, 6, 20 };
+    int mp = 20;
+    boolean guarding;
+
+    int maxMp() { return 20 + 5 * (hero.level - 1); }
     int hitFlash, heroFlash, toastTimer;
     String toast = "";
     final List<String> log = new ArrayList<>();
@@ -146,6 +155,11 @@ public class KingdomOfEmbersGUI extends JPanel implements KeyListener {
                 buildMap();
                 toast("Travelled to " + KingdomOfEmbers.AREA_NAMES[dest] + ".");
             }
+        } else if (k == KeyEvent.VK_H) {
+            if (hero.level < SKILL_LV[1]) toast("Heal unlocks at level " + SKILL_LV[1] + ".");
+            else if (mp < SKILL_MP[1]) toast("Not enough MP.");
+            else if (hero.hp >= hero.maxHp) toast("You are already at full health.");
+            else { mp -= SKILL_MP[1]; hero.heal(hero.maxHp * 4 / 10); toast("Heal cast!"); }
         } else if (k == KeyEvent.VK_P) {
             if (hero.potions > 0 && hero.hp < hero.maxHp) {
                 hero.potions--; hero.heal(30); toast("You drink a potion.");
@@ -154,9 +168,9 @@ public class KingdomOfEmbersGUI extends JPanel implements KeyListener {
             KingdomOfEmbers.save(hero); toast("Game saved.");
         } else if (k == KeyEvent.VK_L) {
             KingdomOfEmbers.Hero h = KingdomOfEmbers.load();
-            if (h != null) { hero = h; buildMap(); toast("Game loaded."); } else toast("No save found.");
+            if (h != null) { hero = h; mp = maxMp(); buildMap(); toast("Game loaded."); } else toast("No save found.");
         } else if (hero.area == 0) {
-            if (k == KeyEvent.VK_R) { hero.hp = hero.maxHp; toast("You rest at the inn. Fully healed!"); }
+            if (k == KeyEvent.VK_R) { hero.hp = hero.maxHp; mp = maxMp(); toast("You rest at the inn. HP and MP restored!"); }
             else if (k == KeyEvent.VK_B) {
                 if (hero.gold >= 15) { hero.gold -= 15; hero.potions++; toast("Bought a potion."); }
                 else toast("Not enough gold (15).");
@@ -178,6 +192,7 @@ public class KingdomOfEmbersGUI extends JPanel implements KeyListener {
             if (hero.questKills >= 5) {
                 hero.potions += 2; hero.quest = 2;
                 boolean up = hero.gainXp(50);
+                if (up) mp = maxMp();
                 toast("Quest complete! +50 XP, +2 potions" + (up ? " LEVEL UP!" : ""));
             } else toast("Elder: Keep going. Slain " + hero.questKills + "/5.");
         } else toast("Elder: Defeat the Ember Lord in his lair, hero!");
@@ -189,6 +204,7 @@ public class KingdomOfEmbersGUI extends JPanel implements KeyListener {
         log.clear();
         log("A wild " + enemy.name + " appears!");
         hero.specialCooldown = 0;
+        guarding = false;
         over = false; victory = false;
         mode = Mode.BATTLE;
     }
@@ -214,10 +230,45 @@ public class KingdomOfEmbersGUI extends JPanel implements KeyListener {
             if (enemy instanceof KingdomOfEmbers.Boss) { log("You cannot flee from the Ember Lord!"); used = true; }
             else if (rnd.nextInt(100) < 50) { toast("You escaped!"); px = lastX; py = lastY; mode = Mode.EXPLORE; return; }
             else { log("Couldn't get away!"); used = true; }
+        } else if (k >= KeyEvent.VK_5 && k <= KeyEvent.VK_8) {
+            used = useSkill(k - KeyEvent.VK_5);
         }
         if (!used) return;
+        mp = Math.min(maxMp(), mp + 2);
         if (hero.specialCooldown > 0 && k != KeyEvent.VK_2) hero.specialCooldown--;
         if (!over && enemy.alive()) enemyTurn();
+    }
+
+    /** Returns true if the skill was cast (and so uses the turn). */
+    boolean useSkill(int i) {
+        if (hero.level < SKILL_LV[i]) { log(SKILL_NAME[i] + " unlocks at level " + SKILL_LV[i] + "."); return false; }
+        if (mp < SKILL_MP[i]) { log("Not enough MP for " + SKILL_NAME[i] + "."); return false; }
+        mp -= SKILL_MP[i];
+        switch (i) {
+            case 0: {
+                int dmg = hero.atk + 6 + rnd.nextInt(4);
+                enemy.takeDamage(dmg); hitFlash = 12;
+                log("FIREBALL burns the " + enemy.name + " for " + dmg + " (ignores defence).");
+                break;
+            }
+            case 1: {
+                int before = hero.hp;
+                hero.heal(hero.maxHp * 4 / 10);
+                log("HEAL restores " + (hero.hp - before) + " HP.");
+                break;
+            }
+            case 2:
+                guarding = true;
+                log("You raise your guard. The next hit is halved.");
+                break;
+            default: {
+                int dmg = hero.atk * 2 + 10 + rnd.nextInt(6);
+                enemy.takeDamage(dmg); hitFlash = 12;
+                log("EMBER STORM engulfs the " + enemy.name + " for " + dmg + "!");
+            }
+        }
+        if (!enemy.alive()) win();
+        return true;
     }
 
     void strike(double mult) {
@@ -235,6 +286,7 @@ public class KingdomOfEmbersGUI extends JPanel implements KeyListener {
         int raw = enemy.attackRoll();
         boolean fury = enemy instanceof KingdomOfEmbers.Boss && raw > enemy.atk + 2;
         int dmg = Math.max(1, raw - hero.def);
+        if (guarding) { dmg = Math.max(1, dmg / 2); guarding = false; log("Your guard absorbs half the blow!"); }
         hero.takeDamage(dmg);
         heroFlash = 12;
         log((fury ? "EMBER FURY! " : "") + enemy.name + " hits you for " + dmg + ".");
@@ -246,14 +298,20 @@ public class KingdomOfEmbersGUI extends JPanel implements KeyListener {
         hero.kills++;
         if (hero.quest == 1) hero.questKills++;
         log("Victory! +" + enemy.xpReward + " XP, +" + enemy.goldReward + " gold.");
-        if (hero.gainXp(enemy.xpReward)) log("LEVEL UP! You are now level " + hero.level + "!");
+        mp = Math.min(maxMp(), mp + 3);
+        if (hero.gainXp(enemy.xpReward)) {
+            mp = maxMp();
+            log("LEVEL UP! You are now level " + hero.level + "!");
+            for (int i = 0; i < SKILL_LV.length; i++)
+                if (SKILL_LV[i] == hero.level) log("New skill unlocked: " + SKILL_NAME[i] + "!");
+        }
         if (rnd.nextInt(100) < 25) { hero.potions++; log("The enemy dropped a potion!"); }
         over = true; victory = true;
     }
 
     void endBattle() {
         if (!victory) {
-            hero.gold /= 2; hero.hp = hero.maxHp; hero.area = 0;
+            hero.gold /= 2; hero.hp = hero.maxHp; mp = maxMp(); hero.area = 0;
             buildMap(); mode = Mode.EXPLORE;
             toast("You wake in the village, minus half your gold.");
         } else if (enemy instanceof KingdomOfEmbers.Boss) mode = Mode.WIN;
@@ -352,9 +410,11 @@ public class KingdomOfEmbersGUI extends JPanel implements KeyListener {
         g.drawString("ATK " + hero.atk + "  DEF " + hero.def + "  Gold " + hero.gold + "  Potions " + hero.potions, 490, y0 + 44);
         String q = hero.quest == 0 ? "Quest: talk to the Elder" : hero.quest == 1 ? "Quest: slay " + hero.questKills + "/5" : "Quest complete";
         g.drawString(q, 14, y0 + 66);
+        g.drawString("MP " + mp + "/" + maxMp(), 300, y0 + 66);
+        bar(g, 380, y0 + 54, 120, 12, (double) mp / maxMp(), new Color(70, 120, 230));
         g.setFont(new Font("SansSerif", Font.PLAIN, 12));
         g.setColor(new Color(190, 190, 200));
-        String help = "Move: arrows/WASD   1-5 Travel   P Potion   K Save   L Load";
+        String help = "Move: arrows/WASD   1-5 Travel   P Potion   H Heal spell   K Save   L Load";
         if (hero.area == 0) help += "   |   R Rest   B Potion(15g)   U Weapon(40g)   E Elder";
         g.drawString(help, 14, y0 + 84);
     }
@@ -385,6 +445,10 @@ public class KingdomOfEmbersGUI extends JPanel implements KeyListener {
         g.drawString(hero.name + "  Lv " + hero.level, 40, 36);
         bar(g, 40, 44, 240, 16, (double) hero.hp / hero.maxHp, new Color(60, 190, 80));
         g.drawString(hero.hp + "/" + hero.maxHp, 290, 58);
+        bar(g, 40, 66, 240, 10, (double) mp / maxMp(), new Color(70, 120, 230));
+        g.setFont(new Font("SansSerif", Font.BOLD, 13));
+        g.drawString("MP " + mp + "/" + maxMp(), 290, 76);
+        g.setFont(new Font("SansSerif", Font.BOLD, 16));
         g.drawString(enemy.name, W - 320, 36);
         bar(g, W - 320, 44, 240, 16, (double) enemy.hp / enemy.maxHp, new Color(210, 60, 60));
         g.drawString(enemy.hp + "/" + enemy.maxHp, W - 70, 58);
@@ -393,6 +457,18 @@ public class KingdomOfEmbersGUI extends JPanel implements KeyListener {
         g.setFont(new Font("Monospaced", Font.PLAIN, 15));
         g.setColor(Color.WHITE);
         for (int i = 0; i < log.size(); i++) g.drawString(log.get(i), 20, 436 + i * 22);
+        g.setFont(new Font("SansSerif", Font.BOLD, 14));
+        g.setColor(new Color(150, 200, 255));
+        g.drawString("SKILLS", 540, 430);
+        for (int i = 0; i < SKILL_NAME.length; i++) {
+            boolean locked = hero.level < SKILL_LV[i];
+            boolean cant = !locked && mp < SKILL_MP[i];
+            g.setColor(locked || cant ? new Color(110, 110, 120) : Color.WHITE);
+            String label = (5 + i) + " " + SKILL_NAME[i] + "  " + SKILL_MP[i] + " MP" + (locked ? "  (Lv " + SKILL_LV[i] + ")" : "");
+            g.drawString(label, 540, 454 + i * 22);
+        }
+        g.setFont(new Font("Monospaced", Font.PLAIN, 15));
+        g.setColor(Color.WHITE);
         g.setFont(new Font("SansSerif", Font.BOLD, 15));
         g.setColor(new Color(255, 200, 90));
         String menu = over ? "Press any key to continue"
