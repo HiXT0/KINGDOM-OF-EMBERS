@@ -84,7 +84,7 @@ The code is object-oriented:
 
 - The project was built in two days, so scope was deliberately reduced from the original LibGDX proposal to a console game plus a Swing GUI.
 - Graphics are simple tile and sprite drawings, with no sound.
-- There is one save slot, and saves from earlier versions may not be compatible with the skill system.
+- There is a single save slot, and MP is not saved (it is restored to full when a game is loaded).
 - The graphical version is still being playtested for balance and bugs.
 
 ## Future work
